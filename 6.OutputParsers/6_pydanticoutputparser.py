@@ -1,0 +1,48 @@
+from langchain_huggingface import HuggingFaceEndpoint, ChatHuggingFace
+from langchain_core.prompts import PromptTemplate
+from langchain_core.output_parsers import PydanticOutputParser
+from pydantic import BaseModel, Field
+from dotenv import load_dotenv
+
+load_dotenv()
+
+llm = HuggingFaceEndpoint(
+    repo_id="Qwen/Qwen3-4B-Instruct-2507",
+    task="text-generation"
+)
+
+model = ChatHuggingFace(llm=llm)
+
+class Person(BaseModel):
+    name: str = Field(description='Name of the person')
+    age: int = Field(gt=18,description='Age of the person')
+    city:str = Field(description='Name of the city the person belongs to')
+
+parser = PydanticOutputParser(pydantic_object=Person)
+
+template = PromptTemplate(
+    template= "Generate the name, age and city of a fictiona {place} person \n {format_instruction}",
+    input_variables=['place'],
+    partial_variables={'format_instruction': parser.get_format_instructions()}
+)
+
+prompt = template.invoke({'place':'india'})
+print(prompt)
+print("--"*30)
+
+chain = template | model | parser
+
+result = chain.invoke({'place': "india"})
+
+print(result)
+
+
+# Lenovo@DESKTOP-GNHJGV0 MINGW64 /f/Gen AI Repos/Langchain/6.OutputParsers (main)
+# $ py 6_pydanticoutputparser.py
+# text='Generate the name, age and city of a fictiona india person \n The output should be formatted as a JSON instance that conforms to the JSON schema below.\n\nAs an example, for the schema {"properties": {"foo": {"title": "Foo", "description": "a list of strings", "type": "array", "items": {"type": "string"}}}, "required": ["foo"]}\nthe object {"foo": ["bar", "baz"]} is a well-formatted instance of the schema. The 
+# object {"properties": {"foo": ["bar", "baz"]}} is not well-formatted.\n\nHere is the output schema:\n```\n{"properties": {"name": {"description": "Name of the person", "title": "Name", "type": "string"}, "age": {"description": "Age of the person", "exclusiveMinimum": 18, "title": "Age", "type": "integer"}, "city": {"description": "Name of the city the person belongs to", "title": "City", "type": "string"}}, "required": ["name", "age", "city"]}\n```'
+# ------------------------------------------------------------
+# name='Aarav Mehta' age=25 city='Mumbai'
+# (.venv) 
+# Lenovo@DESKTOP-GNHJGV0 MINGW64 /f/Gen AI Repos/Langchain/6.OutputParsers (main)
+
